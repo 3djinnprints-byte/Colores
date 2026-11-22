@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elige tus colores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: amable y clara, como un mostrador de taller donde el cliente escoge filamento
+   IDEA: el carrusel de carretes junto a la figura recién impresa
+   PICTURE: la figura en 3D girando sobre su base, grande, coloreándose al tocar
+   COLOUR and TYPE: escenario tinta profunda, fondo blanco, acento coral; Outfit
+   LAYOUT: visor a la izquierda y panel de partes+paleta a la derecha; en celular, visor arriba */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#12131a);--ink:light-dark(#16161d,#eeeef3);--soft:light-dark(#f1f1f4,#1d1f29);--line:light-dark(#dedee5,#2c2f3c);--mut:light-dark(#5d5f6b,#a3a5b3);--acc:#ff5a3c;--stage:#1b1d29}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Outfit,system-ui,sans-serif;overflow-x:clip}
+.app{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);min-height:100vh}
+.stage{position:sticky;top:0;height:100vh;background:radial-gradient(120% 90% at 50% 30%,#363a52 0%,var(--stage) 62%,#101119 100%);min-height:420px}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.msg{position:absolute;inset:0;display:grid;place-items:center;color:#c9cbe0;padding:24px;text-align:center}
+.ghost.tog{position:absolute;right:12px;top:12px;background:rgba(20,22,32,.7);color:#fff;border-color:rgba(255,255,255,.3)}
+.hint{position:absolute;left:16px;bottom:14px;color:#b7b9cf;font-size:13px;pointer-events:none}
+.panel{padding:clamp(20px,3vw,36px);display:flex;flex-direction:column;gap:22px}
+h1{font-size:clamp(30px,4vw,42px);line-height:1.05;margin:0;font-weight:800;text-wrap:balance}
+.sub{margin:6px 0 0;color:var(--mut)}
+h2{font-size:17px;margin:0 0 10px;font-weight:600}
+.parts{display:flex;flex-direction:column;gap:6px}
+.part{display:flex;align-items:center;gap:12px;min-height:48px;padding:6px 12px;border:1.5px solid var(--line);border-radius:12px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.part[aria-pressed=true]{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 9%,transparent)}
+.part .n{flex:1;font-weight:600}.part .c{color:var(--mut);font-size:14px;white-space:nowrap}
+.dot{width:26px;height:26px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.18)}
+.dot.none{background:repeating-linear-gradient(45deg,#ccc 0 4px,#eee 4px 8px)}
+.pal{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
+.sw{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px;border:1.5px solid transparent;border-radius:12px;background:var(--soft);color:inherit;font:inherit;font-size:13px;line-height:1.2;text-align:center;cursor:pointer;min-height:76px}
+.sw .dot{width:34px;height:34px}
+.dot.silk{background-image:linear-gradient(135deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 40%,rgba(0,0,0,.18) 70%,rgba(255,255,255,.35) 100%)}
+.mat{grid-column:1/-1;margin:6px 0 0;font-weight:600;font-size:14px;color:var(--mut)}
+.sw[aria-pressed=true]{border-color:var(--acc)}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.go{min-height:52px;border:0;border-radius:14px;background:var(--acc);color:#fff;font:600 17px Outfit,sans-serif;cursor:pointer}
+.ghost{min-height:44px;padding:0 16px;border:1.5px solid var(--line);border-radius:12px;background:none;color:inherit;font:600 15px Outfit,sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.note{font-size:13px;color:var(--mut);margin:0}
+.taller{display:none;border:1.5px dashed var(--acc);border-radius:14px;padding:14px;gap:10px;flex-direction:column}
+.is-taller .taller{display:flex}
+.part input{flex:1;font:600 16px Outfit,sans-serif;border:0;border-bottom:1.5px solid var(--line);background:none;color:inherit;padding:4px 0}
+.sheet{position:fixed;inset:0;background:rgba(10,10,16,.55);display:none;place-items:center;padding:16px;z-index:9}
+.sheet.on{display:grid}
+.card{background:var(--bg);border-radius:20px;padding:24px;width:min(520px,100%);max-height:92vh;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.card ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.card li{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.card li b{flex:1}.card li.miss span{color:var(--acc);font-weight:600}
+.code{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:var(--soft)}
+.code code{font:13px/1.4 ui-monospace,Menlo,monospace;overflow-wrap:anywhere;user-select:all}
+.field{font:16px Outfit,sans-serif;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--soft);color:inherit;width:100%}
+.row{display:flex;flex-wrap:wrap;gap:8px}.row>*{flex:1 1 180px}
+textarea.field{min-height:120px;display:none}
+@media(max-width:820px){.app{grid-template-columns:1fr}.stage{position:relative;height:52vh;min-height:320px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="stage" id="stage">
+    <div class="msg" id="msg">Cargando modelo…</div>
+    <div class="hint">Arrastra para girar · toca una parte para elegirla</div>
+    <button class="ghost tog" id="toggle" hidden>Cerrar caja</button>
+  </div>
+  <div class="panel">
+    <div>
+      <h1>Elige los colores de tu pieza</h1>
+      <p class="sub" id="modelName">3Djinn · impresión 3D</p>
+      <select id="picker" class="field" hidden aria-label="Modelo" style="margin-top:10px"></select>
+    </div>
+    <div class="taller">
+      <h2>Modo taller</h2>
+      <p class="note">Carga el modelo desde tu equipo (.3mf, .glb, .obj o varios .stl, uno por color). Cada objeto o archivo se vuelve una parte; toca el nombre para cambiarlo.</p>
+      <input type="file" id="file" multiple accept=".stl,.glb,.gltf,.obj,.3mf" class="field">
+      <button class="ghost" id="copyCfg">Copiar configuración para agregarlo al catálogo</button>
+      <textarea class="field" id="cfgOut" readonly></textarea>
+    </div>
+    <section>
+      <h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">1 · Partes <button class="ghost" id="reset" hidden style="min-height:36px;font-size:14px">Colores originales</button></h2>
+      <div class="parts" id="parts"></div>
+    </section>
+    <section>
+      <h2 id="palTitle">2 · Color</h2>
+      <div class="pal" id="pal"></div>
+      <p class="note" style="margin-top:8px">Filamentos disponibles. En pantalla el tono puede verse un poco distinto al real, sobre todo en los metálicos.</p>
+    </section>
+    <button class="go" id="done">Ver mi selección</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sumT">
+  <div class="card">
+    <h2 id="sumT" style="font-size:24px;margin:0">Tu selección</h2>
+    <p class="note" id="sumModel"></p>
+    <ul id="sumList"></ul>
+    <p class="note" id="sumCount"></p>
+    <div id="codeBox" class="code" hidden><span class="note">Código de tu pedido (va incluido en el mensaje)</span><code id="codeOut"></code></div>
+    <input class="field" id="cli" placeholder="Tu nombre (opcional)" autocomplete="name">
+    <div class="row">
+      <a class="go" id="wa" href="#" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Enviar por WhatsApp</a>
+      <button class="ghost" id="copy">Copiar código</button>
+    </div>
+    <textarea class="field" id="txtOut" readonly></textarea>
+    <button class="ghost" id="back">Seguir editando</button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
+{
+/* ===== CONFIGURACIÓN (Arjhon edita aquí) ===== */
+const CONFIG = {
+  negocio: '3Djinn',
+  whatsapp: '',            // tu número con lada, ej. '5213312345678'; vacío = el cliente elige el contacto
+};
+/* Paleta de ejemplo: reemplazar con los filamentos reales */
+/* Filamentos de Arjhon: colores tomados de Bambu Studio (Filamentos oficiales) */
+const PALETA = [
+  {nombre:'Negro', hex:'#000000', material:'Brillante'},
+  {nombre:'Gris oscuro', hex:'#757575', material:'Brillante'},
+  {nombre:'Blanco', hex:'#ffffff', material:'Brillante'},
+  {nombre:'Rojo escarlata', hex:'#de4343', material:'Brillante'},
+  {nombre:'Terracota', hex:'#b15533', material:'Brillante'},
+  {nombre:'Naranja mandarina', hex:'#f99963', material:'Brillante'},
+  {nombre:'Arena', hex:'#d3b7a7', material:'Brillante'},
+  {nombre:'Chocolate', hex:'#4d3324', material:'Brillante'},
+  {nombre:'Café latte', hex:'#7d6556', material:'Brillante'},
+  {nombre:'Caramelo', hex:'#ae835b', material:'Brillante'},
+  {nombre:'Marfil', hex:'#e8dbb7', material:'Brillante'},
+  {nombre:'Blanco hueso', hex:'#cbc6b8', material:'Brillante'},
+  {nombre:'Amarillo limón', hex:'#f7d959', material:'Brillante'},
+  {nombre:'Verde olivo', hex:'#68724d', material:'Brillante'},
+  {nombre:'Verde manzana', hex:'#c2e189', material:'Brillante'},
+  {nombre:'Verde pasto', hex:'#61c680', material:'Brillante'},
+  {nombre:'Azul hielo', hex:'#a3d8e1', material:'Brillante'},
+  {nombre:'Azul cielo', hex:'#56b7e6', material:'Brillante'},
+  {nombre:'Azul marino', hex:'#0078bf', material:'Brillante'},
+  {nombre:'Gris ceniza', hex:'#9b9ea0', material:'Brillante'},
+  {nombre:'Azul oscuro', hex:'#042f56', material:'Brillante'},
+  {nombre:'Lila', hex:'#ae96d4', material:'Brillante'},
+  {nombre:'Rosa sakura', hex:'#e8afcf', material:'Brillante'},
+  {nombre:'Ciruela', hex:'#950051', material:'Brillante'},
+  {nombre:'Rojo oscuro', hex:'#bb3d43', material:'Brillante'},
+  {nombre:'Plata', hex:'#c8c8c8', material:'Metálico'},
+  {nombre:'Blanco perla', hex:'#ffffff', material:'Metálico'},
+  {nombre:'Rojo', hex:'#d02727', material:'Metálico'},
+  {nombre:'Rosa viejo', hex:'#ba9594', material:'Metálico'},
+  {nombre:'Rosa', hex:'#f7ada6', material:'Metálico'},
+  {nombre:'Champaña', hex:'#f3cfb2', material:'Metálico'},
+  {nombre:'Dorado', hex:'#f4a925', material:'Metálico'},
+  {nombre:'Verde esmeralda', hex:'#018814', material:'Metálico'},
+  {nombre:'Menta', hex:'#96dcb9', material:'Metálico'},
+  {nombre:'Azul', hex:'#008bda', material:'Metálico'},
+  {nombre:'Titanio', hex:'#5f6367', material:'Metálico'},
+  {nombre:'Azul bebé', hex:'#a8c6ee', material:'Metálico'},
+  {nombre:'Morado', hex:'#8671cb', material:'Metálico'},
+];
+/* Catálogo: cada modelo se abre con #id al final del enlace */
+/* El primero es el que abre el enlace sin #. Los que tengan demo:true no salen en el menú. */
+const CATALOGO = {
+  deckbox: { nombre: 'Deckbox 100 cartas', archivos: ['modelos/deckbox.json'],
+    secciones: { right:'Mitad izquierda', left:'Mitad derecha', lineas_r:'Líneas del costado', lineas_l:'Líneas del costado', insert:'Inserto (porta cartas)',
+                 disco_f:'Discos (frente y atrás)', disco_b:'Discos (frente y atrás)', aro_f:'Aro de los botones', aro_b:'Aro de los botones', boton_f:'Botones de los discos', boton_b:'Botones de los discos',
+                 moneda_f:'Monedas', moneda_b:'Monedas', decals_l:'Placas decorativas', decals_r:'Placas decorativas' },
+    // bisagra: eje y punto en mm del modelo armado (D_STORE.stl); giro +1/-1 por pieza; interior = partes que solo se ven abierta
+    // colores con los que abre el modelo (nombres de la paleta)
+    base: { right:'Azul hielo', left:'Azul hielo', lineas_r:'Gris ceniza', lineas_l:'Gris ceniza', insert:'Negro', disco_f:'Azul hielo', disco_b:'Azul hielo',
+            aro_f:'Negro', aro_b:'Negro', boton_f:'Blanco', boton_b:'Blanco', moneda_f:'Negro', moneda_b:'Negro', decals_l:'Gris ceniza', decals_r:'Gris ceniza' },
+    // orden fijo de las secciones dentro del código (no cambiar: el taller lo lee igual)
+    codigo: ['right','left','lineas_r','insert','disco_f','aro_f','boton_f','moneda_f','decals_l'],
+    bisagra: { eje:[0,1,0], punto:[0.05,0,-0.85], angulo:38, giro:{ right:-1, decals_r:-1, lineas_r:-1, left:1, decals_l:1, lineas_l:1 }, interior:['insert'] } },
+  deckbox60: { nombre: 'Deckbox 60 cartas', archivos: ['modelos/deckbox60.json'],
+    secciones: { right:'Mitad izquierda', left:'Mitad derecha', lineas_r:'Líneas del costado', lineas_l:'Líneas del costado', insert:'Inserto (porta cartas)',
+                 disco_f:'Discos (frente y atrás)', disco_b:'Discos (frente y atrás)', aro_f:'Aro de los botones', aro_b:'Aro de los botones', boton_f:'Botones de los discos', boton_b:'Botones de los discos',
+                 moneda_f:'Monedas', moneda_b:'Monedas', decals_l:'Placas decorativas', decals_r:'Placas decorativas' },
+    // bisagra: eje y punto en mm del modelo armado (D_STORE.stl); giro +1/-1 por pieza; interior = partes que solo se ven abierta
+    // colores con los que abre el modelo (nombres de la paleta)
+    base: { right:'Azul hielo', left:'Azul hielo', lineas_r:'Gris ceniza', lineas_l:'Gris ceniza', insert:'Negro', disco_f:'Azul hielo', disco_b:'Azul hielo',
+            aro_f:'Negro', aro_b:'Negro', boton_f:'Blanco', boton_b:'Blanco', moneda_f:'Negro', moneda_b:'Negro', decals_l:'Gris ceniza', decals_r:'Gris ceniza' },
+    // orden fijo de las secciones dentro del código (no cambiar: el taller lo lee igual)
+    codigo: ['right','left','lineas_r','insert','disco_f','aro_f','boton_f','moneda_f','decals_l'],
+    bisagra: { eje:[0,1,0], punto:[0.05,0,-0.85], angulo:38, giro:{ right:-1, decals_r:-1, lineas_r:-1, left:1, decals_l:1, lineas_l:1 }, interior:['insert'] } },
+  demo: { nombre: 'Figura de muestra', demo: true },
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const taller = location.hash === '#taller';
+if (taller) $('app').classList.add('is-taller');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ===== escena ===== */
+const stage = $('stage');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true }); }
+catch(e){ $('msg').textContent = 'Tu navegador no pudo abrir el visor 3D.'; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+stage.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3d55, 1.2));
+const key = new THREE.DirectionalLight(0xffffff, 1.8); key.position.set(3,5,4); scene.add(key);
+const rim = new THREE.DirectionalLight(0xbfd0ff, 0.8); rim.position.set(-4,3,-4); scene.add(rim);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.enablePan = false; controls.autoRotate = !reduce; controls.autoRotateSpeed = 1.4;
+controls.addEventListener('start', () => controls.autoRotate = false);
+// sombra suave en el piso
+const sc = document.createElement('canvas'); sc.width = sc.height = 128;
+const g2 = sc.getContext('2d'), gr = g2.createRadialGradient(64,64,0,64,64,64);
+gr.addColorStop(0,'rgba(0,0,0,.55)'); gr.addColorStop(1,'rgba(0,0,0,0)'); g2.fillStyle = gr; g2.fillRect(0,0,128,128);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(1,1), new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(sc), transparent:true, depthWrite:false }));
+floor.rotation.x = -Math.PI/2; scene.add(floor);
+
+let fitR = 0, lastW = 0;
+function frame(){  // aleja la cámara lo justo para que quepa todo el modelo, girando
+  if (!fitR) return;
+  const v = THREE.MathUtils.degToRad(camera.fov) / 2, hz = Math.atan(Math.tan(v) * camera.aspect);
+  const d = fitR / Math.sin(Math.min(v, hz)) * 1.05;
+  const dir = new THREE.Vector3(0, 0.45, 1).normalize();
+  camera.position.copy(controls.target).addScaledVector(dir, d);
+  controls.minDistance = d * 0.25; controls.maxDistance = d * 2; controls.update();
+}
+function resize(){ const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix(); if (w !== lastW) { lastW = w; frame(); } }
+const ro = new ResizeObserver(resize); ro.observe(stage);
+
+/* ===== modelo y partes ===== */
+let root = null, parts = [], active = 0, flash = 0, modelInfo = { nombre:'', archivos:[], secciones:{} };
+const NEUTRO = 0xc9c9c9;
+
+function setModel(group, info){
+  if (root) scene.remove(root);
+  root = new THREE.Group(); root.add(group); scene.add(root);
+  modelInfo = info; parts = []; active = 0;
+  const map = info.secciones || {}, byName = new Map(); let n = 0;
+  group.traverse(o => {
+    if (!o.isMesh) return;
+    const raw = o.name || ('Parte ' + (++n));
+    const nombre = map[raw] || raw;
+    if (!byName.has(nombre)) {
+      const p = { raw, nombre, meshes:[], color:null, mat:new THREE.MeshStandardMaterial({ color:NEUTRO, roughness:.42, metalness:0 }) };
+      byName.set(nombre, p); parts.push(p);
+    }
+    const p = byName.get(nombre);
+    if (o.geometry && !o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+    o.material = p.mat; o.userData.part = p; p.meshes.push(o);
+  });
+  // centrar y escalar
+  const box = new THREE.Box3().setFromObject(group), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const s = 2.4 / Math.max(size.x, size.y, size.z, 1e-6);
+  group.position.set(-c.x, -box.min.y, -c.z); root.scale.setScalar(s);
+  const h = size.y * s, r = Math.max(size.x, size.z) * s;
+  floor.scale.setScalar(r * 1.6 + .4);
+  controls.target.set(0, h*0.5, 0);
+  fitR = 0.5 * Math.hypot(size.x, size.y, size.z) * s;
+  frame();
+  applyBase();
+  $('modelName').textContent = CONFIG.negocio + ' · ' + info.nombre;
+  $('msg').style.display = 'none';
+  renderParts(); renderPal();
+}
+
+function applyBase(){
+  const b = modelInfo.base || {};
+  parts.forEach(p => { const c = PALETA.find(x => x.nombre === b[p.raw]); p.color = c || null; p.mat.color.set(c ? c.hex : NEUTRO); });
+  $('reset').hidden = !modelInfo.base;
+}
+function demoFigure(){
+  const g = new THREE.Group(), add = (geo, name, x, y, z, sx=1, sy=1, sz=1, rz=0) => {
+    const m = new THREE.Mesh(geo); m.name = name; m.position.set(x,y,z); m.scale.set(sx,sy,sz); m.rotation.z = rz; g.add(m);
+  };
+  add(new THREE.CylinderGeometry(.9,.95,.2,64), 'Base', 0,.1,0);
+  add(new THREE.SphereGeometry(.2,32,16), 'Zapatos', -.19,.3,.08, 1,.7,1.4);
+  add(new THREE.SphereGeometry(.2,32,16), 'Zapatos', .19,.3,.08, 1,.7,1.4);
+  add(new THREE.CapsuleGeometry(.42,.42,8,32), 'Ropa', 0,.82,0);
+  add(new THREE.CapsuleGeometry(.11,.42,6,16), 'Piel', -.55,.9,0, 1,1,1, -.4);
+  add(new THREE.CapsuleGeometry(.11,.42,6,16), 'Piel', .55,.9,0, 1,1,1, .4);
+  add(new THREE.SphereGeometry(.62,48,32), 'Piel', 0,1.68,0);
+  add(new THREE.SphereGeometry(.67,48,32,0,Math.PI*2,0,Math.PI*.52), 'Cabello', 0,1.7,-.04, 1,1,1);
+  add(new THREE.SphereGeometry(.1,24,16), 'Ojos', -.22,1.62,.55, 1,1.3,.5);
+  add(new THREE.SphereGeometry(.1,24,16), 'Ojos', .22,1.62,.55, 1,1.3,.5);
+  return g;
+}
+
+/* ===== carga de archivos (catálogo o modo taller) ===== */
+const ext = n => n.split('.').pop().toLowerCase();
+const base = n => n.split('/').pop().replace(/\.[^.]+$/, '');
+function parseOne(name, buf){
+  return new Promise((ok, bad) => {
+    const e = ext(name);
+    try {
+      const zUp = o => { const g = new THREE.Group(); g.rotation.x = -Math.PI/2; g.add(o); return g; };  // STL/3MF vienen con Z arriba
+      if (e === 'stl') { const m = new THREE.Mesh(new STLLoader().parse(buf)); m.name = base(name); ok(zUp(m)); }
+      else if (e === 'json') {  // formato compacto propio: posiciones uint16 + índices, todas las piezas en un archivo
+        const d = JSON.parse(new TextDecoder().decode(buf)), g = new THREE.Group();
+        const bin = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
+        for (const p of d.partes) {
+          const q = new Uint16Array(bin(p.p)), pos = new Float32Array(q.length);
+          for (let j = 0; j < q.length; j++) pos[j] = d.min[j % 3] + q[j] * d.esc;
+          let geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+          geo.setIndex(new THREE.BufferAttribute(p.w === 16 ? new Uint16Array(bin(p.i)) : new Uint32Array(bin(p.i)), 1));
+          geo = geo.toNonIndexed(); geo.computeVertexNormals();   // caras planas, como el STL
+          const m = new THREE.Mesh(geo); m.name = p.nombre; g.add(m);
+        }
+        ok(zUp(g));
+      }
+      else if (e === 'obj') ok(new OBJLoader().parse(new TextDecoder().decode(buf)));
+      else if (e === '3mf') ok(zUp(new ThreeMFLoader().parse(buf)));
+      else if (e === 'glb' || e === 'gltf') new GLTFLoader().parse(buf, '', gl => ok(gl.scene), bad);
+      else bad(new Error('Formato no soportado: ' + name));
+    } catch(err){ bad(err); }
+  });
+}
+async function loadBuffers(list, info){
+  $('msg').style.display = ''; $('msg').textContent = 'Cargando modelo…';
+  const g = new THREE.Group();
+  for (const { name, buf } of list) g.add(await parseOne(name, buf));
+  hinge = null;
+  if (info.bisagra) {
+    const b = info.bisagra, ms = [];
+    g.traverse(o => { if (o.isMesh && b.giro[o.name]) ms.push({ m:o, dir:b.giro[o.name] }); });
+    hinge = { ...b, ms, eje:new THREE.Vector3(...b.eje).normalize(), punto:new THREE.Vector3(...b.punto), a:b.angulo };
+    setHinge(hinge.a);
+  }
+  setModel(g, info);
+  $('toggle').hidden = !hinge; if (hinge) $('toggle').textContent = 'Cerrar caja';
+}
+let hinge = null, anim = null;
+function setHinge(a){
+  const T = new THREE.Matrix4(), R = new THREE.Matrix4(), B = new THREE.Matrix4(), p = hinge.punto;
+  hinge.cur = a;
+  for (const { m, dir } of hinge.ms) {
+    m.matrixAutoUpdate = false;
+    R.makeRotationAxis(hinge.eje, THREE.MathUtils.degToRad(a * dir));
+    m.matrix.copy(T.makeTranslation(p.x, p.y, p.z).multiply(R).multiply(B.makeTranslation(-p.x, -p.y, -p.z)));
+  }
+}
+function moveHinge(to){
+  if (!hinge) return;
+  $('toggle').textContent = to > 0 ? 'Cerrar caja' : 'Abrir caja';
+  if (reduce) return setHinge(to);
+  anim = { from: hinge.cur, to, t0: performance.now() };
+}
+async function loadCatalog(id){
+  const item = CATALOGO[id] || Object.values(CATALOGO)[0];
+  item.id = Object.keys(CATALOGO).find(k => CATALOGO[k] === item);
+  const ids = Object.keys(CATALOGO).filter(k => !CATALOGO[k].demo);
+  if (ids.length > 1) {
+    $('picker').hidden = false;
+    $('picker').innerHTML = ids.map(k => `<option value="${k}" ${CATALOGO[k]===item?'selected':''}>${esc(CATALOGO[k].nombre)}</option>`).join('');
+  }
+  if (item.demo) return setModel(demoFigure(), { nombre:item.nombre, archivos:[], secciones:{} });
+  const list = [];
+  const emb = document.getElementById('emb-' + item.id);
+  if (emb) return loadBuffers([{ name:'modelo.json', buf: new TextEncoder().encode(emb.textContent).buffer }], item);
+  let done = 0;
+  await Promise.all(item.archivos.map(async (url, i) => {
+    const r = await fetch(url); if (!r.ok) throw new Error('falta ' + url);
+    list[i] = { name:url, buf: await r.arrayBuffer() };
+    $('msg').textContent = `Cargando piezas… ${++done} de ${item.archivos.length}`;
+  }));
+  await loadBuffers(list, item);
+}
+$('file').addEventListener('change', async e => {
+  const files = [...e.target.files]; if (!files.length) return;
+  const list = await Promise.all(files.map(async f => ({ name:f.name, buf: await f.arrayBuffer() })));
+  try { await loadBuffers(list, { nombre: base(files[0].name), archivos: files.map(f => 'modelos/' + f.name), secciones:{} }); }
+  catch(err){ $('msg').textContent = 'No se pudo leer el archivo: ' + err.message; }
+});
+
+/* ===== interfaz ===== */
+function renderParts(){
+  $('parts').innerHTML = parts.map((p,i) => `
+    <div class="part" role="button" tabindex="0" data-i="${i}" aria-pressed="${i===active}">
+      <span class="dot ${p.color?'':'none'}" style="${p.color?`background:${p.color.hex}`:''}"></span>
+      ${taller ? `<input value="${esc(p.nombre)}" data-i="${i}" aria-label="Nombre de la parte">` : `<span class="n">${esc(p.nombre)}</span>`}
+      <span class="c">${p.color ? esc(p.color.nombre) : 'Sin elegir'}</span>
+    </div>`).join('');
+  $('palTitle').textContent = parts[active] ? `2 · Color para: ${parts[active].nombre}` : '2 · Color';
+}
+function renderPal(){
+  const cur = parts[active]?.color, mats = [...new Set(PALETA.map(c => c.material))];
+  $('pal').innerHTML = mats.map(m => `<p class="mat">${esc(m)}s</p>` + PALETA.map((c,i) => c.material !== m ? '' : `
+    <button class="sw" data-c="${i}" aria-pressed="${cur===c}"><span class="dot ${/met[aá]lico|seda/i.test(m)?'silk':''}" style="background-color:${c.hex}"></span>${esc(c.nombre)}</button>`).join('')).join('');
+}
+function select(i){
+  active = i; flash = performance.now(); renderParts(); renderPal();
+  if (hinge && hinge.cur < 1 && hinge.interior.includes(parts[i].raw)) moveHinge(hinge.angulo);  // abre si la parte está adentro
+}
+
+$('parts').addEventListener('click', e => { if (e.target.tagName === 'INPUT') return; const el = e.target.closest('.part'); if (el) select(+el.dataset.i); });
+$('parts').addEventListener('keydown', e => { if ((e.key==='Enter'||e.key===' ') && e.target.classList.contains('part')) { e.preventDefault(); select(+e.target.dataset.i); } });
+$('parts').addEventListener('input', e => { const i = +e.target.dataset.i; parts[i].nombre = e.target.value; $('palTitle').textContent = '2 · Color para: ' + e.target.value; });
+$('parts').addEventListener('focusin', e => { if (e.target.tagName === 'INPUT' && +e.target.dataset.i !== active) { active = +e.target.dataset.i; flash = performance.now(); renderPal(); } });
+$('pal').addEventListener('click', e => {
+  const b = e.target.closest('.sw'); if (!b || !parts[active]) return;
+  const c = PALETA[+b.dataset.c], p = parts[active];
+  p.color = c; p.mat.color.set(c.hex);
+  const next = parts.findIndex(q => !q.color);       // avanza a la siguiente parte sin color
+  if (next >= 0 && !taller) active = next;
+  flash = performance.now(); renderParts(); renderPal();
+});
+
+// tocar el modelo para elegir parte
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let down = null;
+renderer.domElement.addEventListener('pointerdown', e => down = [e.clientX, e.clientY]);
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX-down[0], e.clientY-down[1]) > 6 || !root) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set((e.clientX-r.left)/r.width*2-1, -(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObject(root, true).find(h => h.object.userData.part);
+  if (hit) select(parts.indexOf(hit.object.userData.part));
+});
+
+/* ===== código de la elección: 6 hex + m/s (mate/seda) por sección, en el orden de CATALOGO.codigo ===== */
+function chk(str){ let h = 7; for (const c of str) h = (h * 31 + c.charCodeAt(0)) % 1296; return h.toString(36).padStart(2,'0'); }
+function makeCode(){
+  const keys = modelInfo.codigo; if (!keys) return '';
+  const body = keys.map(k => { const p = parts.find(q => q.nombre === modelInfo.secciones[k]);
+    return p && p.color ? p.color.hex.slice(1).toLowerCase() + (/met[aá]lico|seda/i.test(p.color.material) ? 's' : 'm') : '0000000'; }).join('');
+  return `3DJ-${modelInfo.id}-${body}-${chk(body)}`;
+}
+/* ===== resumen ===== */
+function summaryText(){
+  const cli = $('cli').value.trim();
+  const lines = parts.map(p => `• ${p.nombre}: ${p.color ? p.color.nombre + ' (' + p.color.material + ')' : 'SIN ELEGIR'}`);
+  const n = new Set(parts.filter(p => p.color).map(p => p.color.nombre)).size;
+  const code = makeCode();
+  return `Pedido ${CONFIG.negocio} — ${modelInfo.nombre}\n${cli ? 'Cliente: ' + cli + '\n' : ''}\n${lines.join('\n')}\n\nColores distintos: ${n}${code ? '\n\nCódigo: ' + code : ''}`;
+}
+function updateWa(){ $('wa').href = `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(summaryText())}`; }
+$('done').addEventListener('click', () => {
+  $('sumModel').textContent = modelInfo.nombre;
+  $('sumList').innerHTML = parts.map(p => `<li class="${p.color?'':'miss'}"><span class="dot ${p.color?'':'none'}" style="${p.color?`background:${p.color.hex}`:''}"></span><b>${esc(p.nombre)}</b><span>${p.color ? esc(p.color.nombre) : 'Sin elegir'}</span></li>`).join('');
+  const miss = parts.filter(p => !p.color).length, n = new Set(parts.filter(p => p.color).map(p => p.color.nombre)).size;
+  $('sumCount').textContent = miss ? `Te falta elegir ${miss} ${miss>1?'partes':'parte'}.` : `Listo: ${n} ${n>1?'colores distintos':'color'}. Envíalo para confirmar tu pedido.`;
+  $('codeOut').textContent = makeCode(); $('codeBox').hidden = !$('codeOut').textContent;
+  $('txtOut').style.display = 'none'; updateWa(); $('sheet').classList.add('on');
+});
+$('cli').addEventListener('input', updateWa);
+$('back').addEventListener('click', () => $('sheet').classList.remove('on'));
+$('sheet').addEventListener('click', e => { if (e.target.id === 'sheet') $('sheet').classList.remove('on'); });
+async function copy(text, out, btn){
+  try { await navigator.clipboard.writeText(text); const t = btn.textContent; btn.textContent = '¡Copiado!'; setTimeout(() => btn.textContent = t, 1600); }
+  catch { out.value = text; out.style.display = 'block'; out.select(); }
+}
+$('copy').addEventListener('click', async e => {
+  const btn = e.currentTarget, code = makeCode(), done = () => { btn.textContent = '¡Código copiado!'; setTimeout(() => btn.textContent = 'Copiar código', 1800); };
+  try { await navigator.clipboard.writeText(code); return done(); } catch {}
+  try {   // respaldo para celulares / navegadores que bloquean el portapapeles
+    const ta = document.createElement('textarea'); ta.value = code; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, code.length);
+    const ok = document.execCommand('copy'); ta.remove(); if (ok) return done();
+  } catch {}
+  const r = document.createRange(); r.selectNodeContents($('codeOut')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  btn.textContent = 'Código seleccionado: mantén presionado y copia';
+});
+$('copyCfg').addEventListener('click', e => {
+  const secciones = {}; parts.forEach(p => { if (p.nombre !== p.raw) secciones[p.raw] = p.nombre; });
+  copy(JSON.stringify({ nombre: modelInfo.nombre, archivos: modelInfo.archivos, secciones }, null, 2), $('cfgOut'), e.currentTarget);
+});
+
+/* ===== animación ===== */
+renderer.setAnimationLoop(t => {
+  controls.update();
+  if (anim) { const u = Math.min(1, (performance.now() - anim.t0) / 600), e = u < .5 ? 2*u*u : 1 - (-2*u + 2)**2 / 2;
+    setHinge(anim.from + (anim.to - anim.from) * e); if (u === 1) anim = null; }
+  const k = Math.max(0, 1 - (performance.now() - flash) / 700) * 0.45;
+  parts.forEach((p,i) => { p.mat.emissive.set(0xff5a3c); p.mat.emissiveIntensity = i === active ? k : 0; });
+  renderer.render(scene, camera);
+});
+
+resize();
+loadCatalog(taller ? 'demo' : location.hash.slice(1)).catch(err => $('msg').textContent = 'No se pudo cargar el modelo: ' + err.message);
+addEventListener('hashchange', () => location.reload());
+$('reset').addEventListener('click', () => { applyBase(); renderParts(); renderPal(); });
+$('toggle').addEventListener('click', () => moveHinge(hinge && hinge.cur > 1 ? 0 : hinge.angulo));
+$('picker').addEventListener('change', e => { location.hash = e.target.value; });
+}
+</script>
+</body>
